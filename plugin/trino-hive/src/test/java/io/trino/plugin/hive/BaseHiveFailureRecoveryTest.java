@@ -123,7 +123,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = 500)
+    @Test(invocationCount = 1)
     public void testInsertIntoNewPartitionBucketedStress()
     {
         Optional<Session> session = Optional.empty();
