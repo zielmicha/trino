@@ -1411,6 +1411,7 @@ public class SemiTransactionalHiveMetastore
     @GuardedBy("this")
     private synchronized void clearCurrentTransaction()
     {
+        log.warn(new RuntimeException(), "AAAAAAAA clearCurrentTransaction " + currentQueryId);
         currentQueryId = Optional.empty();
         currentHiveTransaction = Optional.empty();
         hiveTransactionSupplier = Optional.empty();
