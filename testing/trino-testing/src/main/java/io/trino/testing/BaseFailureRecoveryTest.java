@@ -70,7 +70,7 @@ import static org.testng.Assert.assertEquals;
 public abstract class BaseFailureRecoveryTest
         extends AbstractTestQueryFramework
 {
-    protected static final int INVOCATION_COUNT = 5;
+    protected static final int INVOCATION_COUNT = 2;
     private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
 
