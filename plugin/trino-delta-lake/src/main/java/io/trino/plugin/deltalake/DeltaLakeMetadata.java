@@ -1578,8 +1578,16 @@ public class DeltaLakeMetadata
 
     private boolean allowWrite(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
-        boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableHandle.getLocation()).isUnsafe();
-        return !requiresOptIn || unsafeWritesEnabled;
+        try {
+            boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableHandle.getLocation()).isUnsafe();
+            return !requiresOptIn || unsafeWritesEnabled;
+        }
+        catch (TrinoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                return false;
+            }
+            throw e;
+        }
     }
 
     private void checkSupportedWriterVersion(ConnectorSession session, SchemaTableName schemaTableName)
