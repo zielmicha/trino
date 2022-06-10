@@ -527,7 +527,7 @@ jobs:
   build-pt:
     runs-on: ubuntu-latest
     outputs:
-      have_azure_secrets: ${{ steps.check-secrets.outputs.have_azure_secrets }}
+      have_cloud_secrets: ${{ steps.check-secrets.outputs.have_cloud_secrets }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -543,14 +543,15 @@ jobs:
         run: |
           if [[ "${{ secrets.AZURE_ABFS_CONTAINER }}" != "" && \
                 "${{ secrets.AZURE_ABFS_ACCOUNT }}" != "" && \
-                "${{ secrets.AZURE_ABFS_ACCESSKEY }}" != ""
+                "${{ secrets.AZURE_ABFS_ACCESSKEY }}" != "" && \
+                "${{ secrets.GCP_CREDENTIALS_KEY }}" != ""
           ]]; \
           then
             echo "Secrets to run product tests were configured in the repo"
-            echo "::set-output name=have_azure_secrets::true"
+            echo "::set-output name=have_cloud_secrets::true"
           else
             echo "Secrets to run product tests were not configured in the repo"
-            echo "::set-output name=have_azure_secrets::false"
+            echo "::set-output name=have_cloud_secrets::false"
           fi
         id: check-secrets
       - name: Maven Install
@@ -598,6 +599,7 @@ jobs:
           # suite-4 does not exist
           - suite-5
           - suite-azure
+          - suite-gcs
         jdk:
           - 11
         exclude:
@@ -621,7 +623,15 @@ jobs:
             config: cdh5
           - suite: suite-azure
             ignore exclusion if: >-
-              ${{ needs.build-pt.outputs.have_azure_secrets == 'true' }}
+              ${{ needs.build-pt.outputs.have_cloud_secrets == 'true' }}
+
+          - suite: suite-gcs
+            config: default
+          - suite: suite-gcs
+            config: cdh5
+          - suite: suite-gcs
+            ignore exclusion if: >-
+              ${{ needs.build-pt.outputs.have_cloud_secrets == 'true' }}
 
         ignore exclusion if:
           # Do not use this property outside of the matrix configuration.
@@ -720,6 +730,8 @@ jobs:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+          GCP_STORAGE_BUCKET: trino-ci-test
         run: |
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} \
