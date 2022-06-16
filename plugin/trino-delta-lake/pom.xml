@@ -421,6 +421,9 @@
 
         <profile>
             <id>cloud-tests</id>
+            <properties>
+                <air.test.thread-count>1</air.test.thread-count>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
