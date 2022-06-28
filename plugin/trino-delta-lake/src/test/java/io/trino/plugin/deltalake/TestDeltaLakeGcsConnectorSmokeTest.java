@@ -78,7 +78,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     private final Path gcpCredentialsFile;
     private final FileSystem fileSystem;
 
-    @Parameters({"gcp-storage-bucket", "gcp-credentials-key"})
+    @Parameters({"testing.gcp-storage-bucket", "testing.gcp-credentials-key"})
     public TestDeltaLakeGcsConnectorSmokeTest(String gcpStorageBucket, String gcpCredentialKey)
     {
         this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");

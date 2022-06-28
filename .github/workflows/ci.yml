@@ -469,8 +469,8 @@ jobs:
             -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
             -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
-            -Dgcp-storage-bucket="trino-ci-test" \
-            -Dgcp-credentials-key="${GCP_CREDENTIALS_KEY}"
+            -Dtesting.gcp-storage-bucket="trino-ci-test" \
+            -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
