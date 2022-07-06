@@ -52,6 +52,7 @@ public class BigQueryConnectorModule
             binder.bind(BigQueryMetadata.class).in(Scopes.SINGLETON);
             binder.bind(BigQuerySplitManager.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryPageSourceProvider.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryPageSinkProvider.class).in(Scopes.SINGLETON);
             binder.bind(ViewMaterializationCache.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(BigQueryConfig.class);
             newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(BigQuerySessionProperties.class).in(Scopes.SINGLETON);

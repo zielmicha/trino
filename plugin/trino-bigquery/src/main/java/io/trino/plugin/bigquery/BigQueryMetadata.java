@@ -29,14 +29,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.trino.plugin.bigquery.BigQueryClient.RemoteDatabaseObject;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -45,6 +50,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -53,11 +59,13 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -389,7 +397,16 @@ public class BigQueryMetadata
         }
     }
 
-    private void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
+    {
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
+        return createTable(session, tableMetadata);
+    }
+
+    private BigQueryOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
@@ -399,15 +416,28 @@ public class BigQueryMetadata
             throw new SchemaNotFoundException(schemaName);
         }
 
-        List<Field> fields = tableMetadata.getColumns().stream()
-                .map(column -> toField(column.getName(), column.getType()))
-                .collect(toImmutableList());
+        ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        ImmutableList.Builder<String> columnsNames = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnsTypes = ImmutableList.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            fields.add(toField(column.getName(), column.getType()));
+            columnsNames.add(column.getName());
+            columnsTypes.add(column.getType());
+        }
 
         TableId tableId = TableId.of(schemaName, tableName);
-        TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields));
+        TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields.build()));
         TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build();
 
         bigQueryClientFactory.create(session).createTable(tableInfo);
+
+        return new BigQueryOutputTableHandle(schemaTableName, columnsNames.build(), columnsTypes.build());
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -420,6 +450,27 @@ public class BigQueryMetadata
         }
         TableId tableId = bigQueryTable.getRemoteTableName().toTableId();
         client.dropTable(tableId);
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
+    {
+        if (retryMode != RetryMode.NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+        BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
+        if (isWildcardTable(TableDefinition.Type.valueOf(table.getType()), table.getRemoteTableName().getTableName())) {
+            throw new TrinoException(BIGQUERY_UNSUPPORTED_OPERATION, "This connector does not support inserting into wildcard tables");
+        }
+        List<String> columnNames = columns.stream().map(column -> ((BigQueryColumnHandle) column).getName()).collect(toImmutableList());
+        List<Type> columnTypes = columns.stream().map(column -> ((BigQueryColumnHandle) column).getTrinoType()).collect(toImmutableList());
+        return new BigQueryInsertTableHandle(table.getSchemaTableName(), columnNames, columnTypes);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
     }
 
     @Override
